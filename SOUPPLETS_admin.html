@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOZ St Soupplets — Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ——— LOCK SCREEN ———————————————————————— */
+    #lock-screen {
+      position: fixed; inset: 0;
+      background: var(--noz-navy, #0D2240);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #lock-screen.hidden { display: none; }
+
+    .lock-logo {
+      font-size: 36px; font-weight: 800;
+      letter-spacing: 6px; color: #fff;
+      margin-bottom: 6px;
+    }
+    .lock-sub {
+      font-size: 13px; color: rgba(255,255,255,0.45);
+      margin-bottom: 40px; letter-spacing: 0.5px;
+    }
+    .lock-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 32px 36px;
+      width: 100%; max-width: 340px;
+      text-align: center;
+    }
+    .lock-title {
+      font-size: 14px; color: rgba(255,255,255,0.7);
+      margin-bottom: 24px; font-weight: 500;
+    }
+
+    /* PIN dots */
+    .pin-dots {
+      display: flex; justify-content: center; gap: 14px;
+      margin-bottom: 28px;
+    }
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.35);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pin-dot.filled {
+      background: #fff;
+      border-color: #fff;
+    }
+    .pin-dot.error {
+      background: #ef4444;
+      border-color: #ef4444;
+      animation: shake 0.35s ease;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-5px); }
+      40%      { transform: translateX(5px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+
+    /* Numpad */
+    .numpad {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .numpad-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: #fff; font-size: 20px; font-weight: 600;
+      height: 56px; cursor: pointer;
+      transition: background 0.12s, transform 0.1s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .numpad-btn:hover  { background: rgba(255,255,255,0.15); }
+    .numpad-btn:active { transform: scale(0.94); background: rgba(255,255,255,0.2); }
+    .numpad-btn.del    { font-size: 18px; }
+    .numpad-btn.empty  { visibility: hidden; }
+
+    .lock-error {
+      font-size: 12px; color: #ef4444;
+      margin-top: 14px; min-height: 18px;
+      font-weight: 500;
+    }
+    .lock-attempts {
+      font-size: 11px; color: rgba(255,255,255,0.3);
+      margin-top: 6px;
+    }
+
+    /* ——— ADMIN APP ——————————————————————————— */
+    #admin-app { display: none; min-height: 100vh; }
+    #admin-app.visible { display: flex; flex-direction: column; }
+
+    .admin-topbar {
+      background: var(--noz-navy, #0D2240);
+      padding: 0 20px; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .admin-topbar-left { display: flex; align-items: center; gap: 10px; }
+    .admin-logo   { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 3px; }
+    .admin-sep    { color: rgba(255,255,255,0.2); font-size: 18px; }
+    .admin-label  {
+      background: rgba(208,2,27,0.85);
+      color: #fff; font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px;
+    }
+    .admin-topbar-right { display: flex; gap: 8px; align-items: center; }
+    .admin-lock-btn {
+      background: rgba(255,255,255,0.1);
+      border: none; color: rgba(255,255,255,0.7);
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: background 0.15s;
+    }
+    .admin-lock-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+    /* ——— ADMIN CONTENT ——————————————————————— */
+    .admin-main {
+      max-width: 900px; margin: 0 auto;
+      padding: 24px 16px 60px;
+      width: 100%;
+    }
+
+    /* Chat interface */
+    .chat-area {
+      background: var(--bg-card, #fff);
+      border: 1px solid var(--border, rgba(0,0,0,0.09));
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+    }
+    .chat-header {
+      background: var(--bg-muted, #f0f2f5);
+      border-bottom: 1px solid var(--border, rgba(0,0,0,0.09));
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chat-header-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--noz-navy, #0D2240);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .chat-header-info {}
+    .chat-header-name { font-size: 13px; font-weight: 600; color: var(--text, #111); }
+    .chat-header-status { font-size: 11px; color: #16a34a; display: flex; align-items: center; gap: 4px; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
+
+    .chat-messages {
+      padding: 16px; min-height: 320px; max-height: 480px;
+      overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .msg {
+      max-width: 80%; display: flex; flex-direction: column; gap: 3px;
+    }
+    .msg.bot  { align-self: flex-start; }
+    .msg.user { align-self: flex-end; }
+
+    .msg-bubble {
+      padding: 10px 14px; border-radius: 12px;
+      font-size: 13px; line-height: 1.55;
+    }
+    .msg.bot  .msg-bubble {
+      background: var(--bg-muted, #f0f2f5);
+      color: var(--text, #111);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.user .msg-bubble {
+      background: var(--noz-navy, #0D2240);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-time { font-size: 10px; color: var(--text-light, #9ca3af); }
+    .msg.user .msg-time { text-align: right; }
+
+    .msg-bubble ul { padding-left: 16px; margin: 4px 0; }
+    .msg-bubble li { margin-bottom: 2px; }
+    .msg-bubble strong { font-weight: 600; }
+    .msg-bubble .tag {
+      display: inline-block; background: rgba(13,34,64,0.1);
+      color: var(--noz-navy, #0D2240); padding: 1px 7px;
+      border-radius: 10px; font-size: 11px; font-weight: 600;
+      margin: 1px 2px;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: none; align-self: flex-start;
+      background: var(--bg-muted, #f0f2f5);
+      padding: 10px 16px; border-radius: 12px;
+      border-bottom-left-radius: 4px;
+    }
+    .typing-indicator.show { display: flex; gap: 4px; align-items: center; }
+    .typing-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted, #6b7280);
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%,60%,100% { transform: translateY(0); }
+      30%          { transform: translateY(-5px); }
+    }
+
+    /* Input bar */
+    .chat-input-bar {
+      border-top: 1px solid var(--border, rgba(0,0,0,0.09));
+      padding: 12px 14px;
+      display: flex; gap: 8px; align-items: flex-end;
+    }
+    #chat-input {
+      flex: 1; background: var(--bg-muted, #f0f2f5);
+      border: 1px solid var(--border, rgba(0,0,0,0.09));
+      border-radius: 10px; padding: 9px 14px;
+      font-size: 13px; color: var(--text, #111);
+      resize: none; min-height: 40px; max-height: 120px;
+      outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    #chat-input:focus { border-color: var(--noz-navy, #0D2240); }
+    #chat-input::placeholder { color: var(--text-light, #9ca3af); }
+
+    .send-btn {
+      background: var(--noz-navy, #0D2240);
+      border: none; border-radius: 10px;
+      width: 40px; height: 40px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .send-btn:hover  { background: #1a3a6e; }
+    .send-btn:active { transform: scale(0.93); }
+    .send-btn svg { color: #fff; }
+
+    /* Quick suggestions */
+    .quick-btns {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 12px;
+    }
+    .quick-btn {
+      background: var(--bg-card, #fff);
+      border: 1px solid var(--border, rgba(0,0,0,0.09));
+      border-radius: 20px; padding: 6px 14px;
+      font-size: 12px; color: var(--text-muted, #6b7280);
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+    }
+    .quick-btn:hover {
+      background: var(--noz-navy, #0D2240);
+      color: #fff; border-color: var(--noz-navy, #0D2240);
+    }
+
+    /* ——— RÈGLES / HISTORIQUE ——————————————— */
+    .section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted, #6b7280);
+      margin-bottom: 8px;
+    }
+
+    .rules-card {
+      background: var(--bg-card, #fff);
+      border: 1px solid var(--border, rgba(0,0,0,0.09));
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .rule-item {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border, rgba(0,0,0,0.09));
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13px;
+    }
+    .rule-item:last-child { border-bottom: none; }
+    .rule-icon {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0; margin-top: 1px;
+    }
+    .rule-text { color: var(--text, #111); line-height: 1.45; }
+    .rule-text small { color: var(--text-muted, #6b7280); font-size: 11px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* Consigne history */
+    .history-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border, rgba(0,0,0,0.09));
+      font-size: 13px;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-date { font-size: 10px; color: var(--text-light, #9ca3af); margin-bottom: 3px; }
+    .history-msg  { color: var(--text, #111); }
+    .history-empty { padding: 24px; text-align: center; color: var(--text-light, #9ca3af); font-size: 13px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #111; color: #fff;
+      padding: 10px 18px; border-radius: 10px;
+      font-size: 13px; font-weight: 500;
+      z-index: 9999; opacity: 0; transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ LOCK SCREEN ══════════ -->
+<div id="lock-screen">
+  <div class="lock-logo">NOZ</div>
+  <div class="lock-sub">St Soupplets · Espace gérant</div>
+  <div class="lock-card">
+    <div class="lock-title">Entrez votre code PIN</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad" id="numpad">
+      <button class="numpad-btn" data-v="1">1</button>
+      <button class="numpad-btn" data-v="2">2</button>
+      <button class="numpad-btn" data-v="3">3</button>
+      <button class="numpad-btn" data-v="4">4</button>
+      <button class="numpad-btn" data-v="5">5</button>
+      <button class="numpad-btn" data-v="6">6</button>
+      <button class="numpad-btn" data-v="7">7</button>
+      <button class="numpad-btn" data-v="8">8</button>
+      <button class="numpad-btn" data-v="9">9</button>
+      <button class="numpad-btn empty"></button>
+      <button class="numpad-btn" data-v="0">0</button>
+      <button class="numpad-btn del" id="btn-del">⌫</button>
+    </div>
+    <div class="lock-error" id="lock-error"></div>
+    <div class="lock-attempts" id="lock-attempts"></div>
+  </div>
+</div>
+
+<!-- ══════════ ADMIN APP ══════════ -->
+<div id="admin-app">
+
+  <header class="admin-topbar">
+    <div class="admin-topbar-left">
+      <span class="admin-logo">NOZ</span>
+      <span class="admin-sep">|</span>
+      <span class="admin-label">GÉRANT</span>
+    </div>
+    <div class="admin-topbar-right">
+      <a href="index.html" style="font-size:12px;color:rgba(255,255,255,0.55);text-decoration:none;padding:6px 10px;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+        ← Planning
+      </a>
+      <button class="admin-lock-btn" id="btn-recap-pdf" onclick="genererRecapPDF()">
+        📄 Récap pointages
+      </button>
+      <button class="admin-lock-btn" id="btn-lock">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Verrouiller
+      </button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- Chat section -->
+    <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <h2 style="font-size:16px;font-weight:600;color:var(--text)">Assistant Planning</h2>
+      <span style="font-size:11px;color:var(--text-muted)">Semaine 16 · St Soupplets</span>
+    </div>
+
+    <!-- Quick suggestions -->
+    <div class="quick-btns" id="quick-btns">
+      <button class="quick-btn" data-q="Génère le planning de la semaine prochaine">📅 Planning semaine prochaine</button>
+      <button class="quick-btn" data-q="Kylian est absent lundi, ajuste le planning">⚠️ Absence Kylian lundi</button>
+      <button class="quick-btn" data-q="Qui est en caisse cette semaine et à quels horaires ?">🧾 Caisse cette semaine</button>
+      <button class="quick-btn" data-q="Montre-moi les heures restantes par employé">⏱ Heures restantes</button>
+      <button class="quick-btn" data-q="Il y a une livraison mercredi matin à 7h, organise les équipes">🚚 Livraison mercredi 7h</button>
+      <button class="quick-btn" data-q="Résume les règles de planning NOZ">📋 Rappel des règles</button>
+    </div>
+
+    <!-- Chat window -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <div class="chat-header-avatar">IA</div>
+        <div class="chat-header-info">
+          <div class="chat-header-name">Assistant NOZ St Soupplets</div>
+          <div class="chat-header-status"><span class="status-dot"></span>En ligne</div>
+        </div>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="typing-indicator" id="typing">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+      <div class="chat-input-bar">
+        <textarea id="chat-input" rows="1" placeholder="Donnez une consigne ou posez une question…"></textarea>
+        <button class="send-btn" id="btn-send">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Règles actives -->
+      <div>
+        <div class="section-label">Règles de planning actives</div>
+        <div class="rules-card">
+          <div class="rule-item">
+            <div class="rule-icon" style="background:#e0edff">📅</div>
+            <div class="rule-text">
+              Mercredi & vendredi : <strong>EMP matin</strong>, <strong>CPRO après-midi</strong>
+              <br><small>Rotation fixe selon la règle NOZ</small>
+            </div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="background:#fef9e0">⚡</div>
+            <div class="rule-text">
+              Repos EMP → <strong>AM prend le relais</strong>
+              <br><small>Continuité managériale garantie</small>
+            </div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="background:#ffe5e5">🧾</div>
+            <div class="rule-text">
+              <strong>1 caisse obligatoire</strong> sans coupure chaque jour
+              <br><small>9h → 19h minimum</small>
+            </div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="background:#e5f9e5">👥</div>
+            <div class="rule-text">
+              Min <strong>AM + 2 EMP</strong> présents simultanément
+              <br><small>Pour la gestion et l'encadrement</small>
+            </div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-icon" style="background:#f0e5ff">⏱</div>
+            <div class="rule-text">
+              Contrats : <strong>Antoine 39h</strong>, <strong>Kylian 39h</strong>, reste <strong>35h</strong>
+              <br><small>Équilibre ±1h toléré</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module consignes -->
+      <div>
+        <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Envoyer une consigne</span>
+          <button onclick="clearHistory()" style="font-size:10px;color:var(--text-light);background:none;border:none;cursor:pointer">Effacer historique</button>
+        </div>
+
+        <!-- Sélecteur personne + priorité -->
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <select id="admin-consigne-dest" style="flex:1;min-width:120px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;background:var(--bg-card);color:var(--text);cursor:pointer">
+            <option value="Tous">👥 Toute l'équipe</option>
+          </select>
+          <select id="admin-consigne-priority" style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;background:var(--bg-card);color:var(--text);cursor:pointer">
+            <option value="normale">🟡 Normale</option>
+            <option value="haute">🔴 Haute</option>
+            <option value="info">🔵 Info</option>
+          </select>
+        </div>
+
+        <!-- Champ texte -->
+        <textarea id="admin-consigne-text"
+          placeholder="Ex: Faire le TDM avant 9h, vérifier le facing..."
+          style="width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;background:var(--bg-muted);color:var(--text);resize:vertical;min-height:60px;font-family:inherit;outline:none;margin-bottom:6px"
+        ></textarea>
+
+        <button onclick="submitAdminConsigne()" style="width:100%;padding:8px;border:none;border-radius:var(--radius-sm);background:var(--noz-navy);color:#fff;cursor:pointer;font-size:12px;font-weight:600">
+          📌 Envoyer la consigne
+        </button>
+
+        <!-- Consignes actives -->
+        <div style="margin-top:12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+            <span>Consignes actives</span>
+            <button onclick="clearAllAdminConsignes()" style="font-size:10px;color:var(--text-light);background:none;border:none;cursor:pointer;font-weight:400">Tout effacer</button>
+          </div>
+          <div id="admin-consignes-list" class="rules-card" style="max-height:200px;overflow-y:auto">
+            <div class="history-empty">Aucune consigne active</div>
+          </div>
+        </div>
+
+        <!-- Historique messages -->
+        <div style="margin-top:12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:6px">Historique messages</div>
+          <div class="rules-card" id="history-list" style="max-height:150px;overflow-y:auto">
+            <div class="history-empty">Aucun message pour l'instant</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script src="firebase.js"></script>
+<script>
+// =============================================
+//  CONFIG
+// =============================================
+const CORRECT_PIN  = '1854';
+const MAX_ATTEMPTS = 5;
+const LOCK_DURATION = 60;
+
+// =============================================
+//  PLANNING OVERRIDE ENGINE (Firebase sync)
+// =============================================
+
+function getOverrides() {
+  try { return JSON.parse(localStorage.getItem('noz_planning_overrides') || '[]'); }
+  catch { return []; }
+}
+
+async function applyOverride(ov) {
+  await syncSaveOverride(ov);
+}
+
+async function removeOverride(prenom, jourIdx) {
+  await syncDeleteOverride(prenom, jourIdx);
+}
+
+function getEffectivePlanning() {
+  const overrides = getOverrides();
+  return STAFF.map(s => {
+    const shifts = s.shifts.map((sh, idx) => {
+      const ov = overrides.find(o => o.prenom === s.prenom && o.jourIdx === idx);
+      return ov ? { j: sh.j, deb: ov.deb, fin: ov.fin, task: ov.task } : sh;
+    });
+    return { ...s, shifts };
+  });
+}
+
+function resumeShifts(s) {
+  const labels = ['L','Ma','Me','J','V','Sa'];
+  return s.shifts.map((sh, i) =>
+    sh.deb ? `<b>${labels[i]}</b>:${sh.deb}h-${sh.fin}h` : `<b>${labels[i]}</b>:Repos`
+  ).join(' · ');
+}
+
+// =============================================
+//  PIN LOGIC
+// =============================================
+let pinInput   = '';
+let attempts   = 0;
+let locked     = false;
+
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('d' + i);
+    d.classList.toggle('filled', i < pinInput.length);
+    d.classList.remove('error');
+  }
+}
+
+function triggerError() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('d' + i);
+    d.classList.remove('filled');
+    d.classList.add('error');
+  }
+  setTimeout(() => {
+    for (let i = 0; i < 4; i++) document.getElementById('d' + i).classList.remove('error');
+    pinInput = '';
+    updateDots();
+  }, 600);
+}
+
+function checkPin() {
+  if (pinInput === CORRECT_PIN) {
+    document.getElementById('lock-screen').classList.add('hidden');
+    document.getElementById('admin-app').classList.add('visible');
+    attempts = 0;
+    sessionStorage.setItem('noz_admin_auth', '1');
+    addBotMessage(getWelcomeMessage());
+  } else {
+    attempts++;
+    triggerError();
+    const remaining = MAX_ATTEMPTS - attempts;
+    if (remaining <= 0) {
+      startLockout();
+    } else {
+      document.getElementById('lock-error').textContent = 'Code incorrect';
+      document.getElementById('lock-attempts').textContent = `${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}`;
+    }
+    pinInput = '';
+  }
+}
+
+function startLockout() {
+  locked = true;
+  let remaining = LOCK_DURATION;
+  document.getElementById('lock-error').textContent = 'Trop de tentatives';
+  document.getElementById('numpad').style.opacity = '0.3';
+  document.getElementById('numpad').style.pointerEvents = 'none';
+
+  const interval = setInterval(() => {
+    remaining--;
+    document.getElementById('lock-attempts').textContent = `Réessayez dans ${remaining}s`;
+    if (remaining <= 0) {
+      clearInterval(interval);
+      locked = false; attempts = 0;
+      document.getElementById('numpad').style.opacity = '1';
+      document.getElementById('numpad').style.pointerEvents = '';
+      document.getElementById('lock-error').textContent = '';
+      document.getElementById('lock-attempts').textContent = '';
+    }
+  }, 1000);
+}
+
+// Numpad events
+document.getElementById('numpad').addEventListener('click', e => {
+  if (locked) return;
+  const btn = e.target.closest('.numpad-btn');
+  if (!btn) return;
+  const v = btn.dataset.v;
+  if (v !== undefined && pinInput.length < 4) {
+    pinInput += v;
+    updateDots();
+    if (pinInput.length === 4) setTimeout(checkPin, 150);
+  }
+});
+
+document.getElementById('btn-del').addEventListener('click', e => {
+  e.stopPropagation();
+  if (locked) return;
+  pinInput = pinInput.slice(0, -1);
+  updateDots();
+  document.getElementById('lock-error').textContent = '';
+});
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lock-screen').classList.contains('hidden')) {
+    if (/^[0-9]$/.test(e.key) && pinInput.length < 4 && !locked) {
+      pinInput += e.key;
+      updateDots();
+      if (pinInput.length === 4) setTimeout(checkPin, 150);
+    }
+    if (e.key === 'Backspace') {
+      pinInput = pinInput.slice(0, -1);
+      updateDots();
+    }
+  }
+});
+
+// Auto-restore session
+if (sessionStorage.getItem('noz_admin_auth') === '1') {
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('admin-app').classList.add('visible');
+  setTimeout(() => addBotMessage(getWelcomeMessage()), 400);
+}
+
+// Lock button
+document.getElementById('btn-lock').addEventListener('click', () => {
+  sessionStorage.removeItem('noz_admin_auth');
+  document.getElementById('lock-screen').classList.remove('hidden');
+  document.getElementById('admin-app').classList.remove('visible');
+  pinInput = ''; updateDots();
+  document.getElementById('lock-error').textContent = '';
+  document.getElementById('lock-attempts').textContent = '';
+});
+
+// =============================================
+//  CHAT LOGIC
+// =============================================
+function now() {
+  return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function addBotMessage(html) {
+  const msgs = document.getElementById('chat-messages');
+  const typing = document.getElementById('typing');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `<div class="msg-bubble">${html}</div><div class="msg-time">${now()}</div>`;
+  msgs.insertBefore(div, typing);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addUserMessage(text) {
+  const msgs = document.getElementById('chat-messages');
+  const typing = document.getElementById('typing');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div><div class="msg-time">${now()}</div>`;
+  msgs.insertBefore(div, typing);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping(show) {
+  document.getElementById('typing').classList.toggle('show', show);
+  const msgs = document.getElementById('chat-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function getWelcomeMessage() {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+  return `${greeting} Antoine ! 👋<br><br>
+Je suis votre assistant planning pour <strong>NOZ St Soupplets</strong>.<br>
+Vous pouvez me donner des consignes, signaler une absence, ou me demander d'ajuster le planning de la semaine.<br><br>
+<strong>Que puis-je faire pour vous ?</strong>`;
+}
+
+// =============================================
+//  PLANNING OVERRIDE ENGINE
+//  Toutes les modifications sont stockées dans
+//  localStorage et appliquées par-dessus data.js
+// =============================================
+
+function getOverrides() {
+  try { return JSON.parse(localStorage.getItem(PLANNING_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveOverrides(list) {
+  localStorage.setItem(PLANNING_KEY, JSON.stringify(list));
+}
+
+// Applique un override : { prenom, jourIdx, deb, fin, task, note }
+function applyOverride(ov) {
+  const list = getOverrides().filter(o => !(o.prenom === ov.prenom && o.jourIdx === ov.jourIdx));
+  list.push(ov);
+  saveOverrides(list);
+}
+
+function removeOverride(prenom, jourIdx) {
+  const list = getOverrides().filter(o => !(o.prenom === prenom && o.jourIdx === jourIdx));
+  saveOverrides(list);
+}
+
+// Retourne le planning effectif (data.js + overrides)
+function getEffectivePlanning() {
+  const overrides = getOverrides();
+  return STAFF.map(s => {
+    const shifts = s.shifts.map((sh, idx) => {
+      const ov = overrides.find(o => o.prenom === s.prenom && o.jourIdx === idx);
+      return ov ? { j: sh.j, deb: ov.deb, fin: ov.fin, task: ov.task } : sh;
+    });
+    return { ...s, shifts };
+  });
+}
+
+// Résume le planning d'une personne en texte court
+function resumeShifts(s) {
+  const labels = ['L','Ma','Me','J','V','Sa'];
+  return s.shifts.map((sh, i) =>
+    sh.deb ? `<b>${labels[i]}</b>:${sh.deb}h-${sh.fin}h` : `<b>${labels[i]}</b>:Repos`
+  ).join(' · ');
+}
+
+// =============================================
+//  MOTEUR D'INTENTIONS — Langage naturel
+// =============================================
+
+const JOURS_FR = { lundi:0, mardi:1, mercredi:2, jeudi:3, vendredi:4, samedi:5, dimanche:6 };
+const JOURS_LABEL = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+// Normalise le texte : minuscules + sans accents
+function norm(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+// Détecte un prénom dans le message (cherche aussi le nom)
+function detectNom(m) {
+  return STAFF.find(s =>
+    m.includes(norm(s.prenom)) ||
+    m.includes(norm(s.nom))
+  );
+}
+
+// Détecte un jour
+function detectJour(m) {
+  for (const [j, idx] of Object.entries(JOURS_FR)) {
+    if (m.includes(j)) return { label: JOURS_LABEL[idx], idx };
+  }
+  // "aujourd'hui" → jour de la semaine actuel
+  if (m.includes('aujourd') || m.includes('auj')) {
+    const idx = (new Date().getDay() + 6) % 7; // 0=Lun
+    if (idx < 6) return { label: JOURS_LABEL[idx], idx };
+  }
+  return null;
+}
+
+// Détecte les heures dans le message
+function detectHeures(m) {
+  const matches = [...m.matchAll(/(\d{1,2})\s*h\s*(\d{0,2})/gi)];
+  return matches.map(x => parseInt(x[1]));
+}
+
+// Détecte la tâche mentionnée
+function detectTask(m) {
+  if (m.includes('caisse'))                         return 'Caisse';
+  if (m.includes('mep') || m.includes('mise en place') || m.includes('mise en rayon')) return 'MEP';
+  if (m.includes('tdm') || m.includes('tri'))       return 'TDM';
+  if (m.includes('polyvalent') || m.includes('poly')) return 'Polyvalent';
+  if (m.includes('manager') || m.includes('gerant') || m.includes('responsable')) return 'Manager';
+  if (m.includes('cpro') || m.includes('contrat pro')) return 'CPRO PM';
+  if (m.includes('surgele'))                        return 'Surgelés';
+  if (m.includes('livraison'))                      return 'Livraison';
+  return null;
+}
+
+// Détecte l'intention principale du message
+function detectIntent(m) {
+  // ABSENCE / REPOS
+  const absenceMots = ['absent','absence','repos','conge','conges','maladie','arret','malade','pas la','ne vient pas','ne sera pas','indisponible','off'];
+  if (absenceMots.some(mot => m.includes(mot))) return 'absence';
+
+  // MODIFIER HORAIRES
+  const horaireMots = ['commence','commencer','debute','finit','termine','horaire','decale','change heure','travaille de','de h','jusqu'];
+  if (horaireMots.some(mot => m.includes(mot))) return 'horaire';
+
+  // CHANGER TÂCHE / POSTE
+  const tacheMots = ['met en','passe en','met a','affecte','place en','bouge','poste','tache','role','affectation','envoie','envoyer'];
+  if (tacheMots.some(mot => m.includes(mot))) return 'tache';
+
+  // ANNULER / RESTAURER
+  const annuleMots = ['annule','annuler','restaure','remet','retabli','initial','revenir','defaut','reset','efface'];
+  if (annuleMots.some(mot => m.includes(mot))) return 'annuler';
+
+  // VOIR PLANNING
+  const voirMots = ['planning','horaire','quand','quel jour','semaine','programme','quel est','montre','voir','affiche'];
+  if (voirMots.some(mot => m.includes(mot))) return 'voir';
+
+  // BILAN HEURES
+  const bilanMots = ['heure','heures','bilan','contrat','total','combien','reste'];
+  if (bilanMots.some(mot => m.includes(mot))) return 'bilan';
+
+  // PROBLÈME / SOUCIS
+  const problMots = ['soucis','probleme','souci','erreur','anomalie','bug','manque','oublie','pas de repos','sans repos','travaille tous'];
+  if (problMots.some(mot => m.includes(mot))) return 'probleme';
+
+  // QUESTION GÉNÉRALE
+  const questionMots = ['qui','quel','quand','combien','est-ce','comment','pourquoi'];
+  if (questionMots.some(mot => m.includes(mot))) return 'question';
+
+  return 'inconnu';
+}
+
+// =============================================
+//  ACTIONS RÉELLES
+// =============================================
+
+async function actionAbsence(personne, jour) {
+  await applyOverride({ prenom: personne.prenom, jourIdx: jour.idx, deb: 0, fin: 0, task: null });
+
+  const planning = getEffectivePlanning();
+  const shiftOriginal = personne.shifts[jour.idx];
+  const avaitCaisse = shiftOriginal?.task?.toLowerCase().includes('caisse');
+
+  let remplacantMsg = '';
+  if (avaitCaisse) {
+    const dispo = planning.find(s =>
+      s.prenom !== personne.prenom &&
+      s.shifts[jour.idx]?.deb > 0 &&
+      !s.shifts[jour.idx]?.task?.toLowerCase().includes('caisse')
+    );
+    if (dispo) {
+      await applyOverride({ prenom: dispo.prenom, jourIdx: jour.idx, deb: dispo.shifts[jour.idx].deb, fin: dispo.shifts[jour.idx].fin, task: 'Caisse' });
+      remplacantMsg = `<br>🔄 <strong>${dispo.prenom}</strong> passe en <strong>Caisse</strong> pour couvrir.`;
+    }
+  }
+
+  let relaisMsg = '';
+  if (personne.role === 'AM') {
+    const kylian = planning.find(s => s.prenom === 'Kylian');
+    if (kylian && kylian.shifts[jour.idx]?.deb > 0) {
+      await applyOverride({ prenom: 'Kylian', jourIdx: jour.idx, deb: kylian.shifts[jour.idx].deb, fin: kylian.shifts[jour.idx].fin, task: 'Relais AM' });
+      relaisMsg = `<br>👔 <strong>Kylian</strong> passe en <strong>Relais AM</strong>.`;
+    }
+  }
+
+  return `✅ <strong>${personne.prenom}</strong> mis en repos le <strong>${jour.label}</strong>.${remplacantMsg}${relaisMsg}<br><br>Planning mis à jour sur toutes les fiches. ✓`;
+}
+
+async function actionModifierHoraires(personne, jour, heures, task) {
+  const sh = personne.shifts[jour.idx];
+  const taskFinale = task || sh?.task || 'Polyvalent';
+  if (heures.length >= 2) {
+    await applyOverride({ prenom: personne.prenom, jourIdx: jour.idx, deb: heures[0], fin: heures[1], task: taskFinale });
+    return `✅ <strong>${personne.prenom}</strong> le <strong>${jour.label}</strong> : <strong>${heures[0]}h → ${heures[1]}h</strong> (${taskFinale}). Planning mis à jour. ✓`;
+  }
+  if (heures.length === 1 && sh?.deb) {
+    // Une seule heure → probablement l'heure de début
+    await applyOverride({ prenom: personne.prenom, jourIdx: jour.idx, deb: heures[0], fin: sh.fin, task: taskFinale });
+    return `✅ <strong>${personne.prenom}</strong> le <strong>${jour.label}</strong> commence maintenant à <strong>${heures[0]}h</strong> (fin inchangée : ${sh.fin}h). ✓`;
+  }
+  return null;
+}
+
+async function actionChangerTache(personne, jour, task) {
+  const sh = personne.shifts[jour.idx];
+  if (!sh?.deb) return `❌ <strong>${personne.prenom}</strong> est en repos ce jour-là. Voulez-vous le remettre en service ?`;
+  const taskFinale = task || 'Polyvalent';
+  await applyOverride({ prenom: personne.prenom, jourIdx: jour.idx, deb: sh.deb, fin: sh.fin, task: taskFinale });
+  return `✅ <strong>${personne.prenom}</strong> le <strong>${jour.label}</strong> passe en <strong>${taskFinale}</strong>. Horaires conservés : ${sh.deb}h–${sh.fin}h. ✓`;
+}
+
+async function actionRestaurer(personne, jour) {
+  await removeOverride(personne.prenom, jour.idx);
+  const original = personne.shifts[jour.idx];
+  const desc = original?.deb ? `${original.deb}h–${original.fin}h (${original.task})` : 'Repos';
+  return `↩️ Planning de <strong>${personne.prenom}</strong> le <strong>${jour.label}</strong> restauré : <strong>${desc}</strong>.`;
+}
+
+function actionVoirPlanning(personne) {
+  const planning = getEffectivePlanning();
+  const eff = planning.find(s => s.prenom === personne.prenom);
+  const total = eff.shifts.reduce((sum, sh) => sum + (sh.deb ? sh.fin - sh.deb : 0), 0);
+  const overridesCount = getOverrides().filter(o => o.prenom === personne.prenom).length;
+  const modifTag = overridesCount ? ` <span style="background:#fef9c3;color:#92400e;font-size:10px;padding:1px 6px;border-radius:8px">✏️ ${overridesCount} modif.</span>` : '';
+  return `Planning de <strong>${personne.prenom}</strong>${modifTag} — <strong>${total}h/${personne.contrat}h</strong> :<br><br>${resumeShifts(eff)}`;
+}
+
+function actionBilanEquipe() {
+  const planning = getEffectivePlanning();
+  const overrides = getOverrides();
+  const lines = planning.map(s => {
+    const total = s.shifts.reduce((sum, sh) => sum + (sh.deb ? sh.fin - sh.deb : 0), 0);
+    const ok = Math.abs(total - s.contrat) <= 1;
+    const modifs = overrides.filter(o => o.prenom === s.prenom).length;
+    const badge = modifs ? ` <span style="font-size:10px;color:#92400e">✏️${modifs}</span>` : '';
+    return `<li>${ok?'✅':'⚠️'} <strong>${s.prenom}</strong>${badge} — ${total}h/${s.contrat}h</li>`;
+  }).join('');
+  const total = overrides.length;
+  return `Bilan équipe :<br><ul>${lines}</ul>${total ? `<em style="font-size:11px;color:var(--text-muted)">${total} modification(s) en cours.</em>` : ''}`;
+}
+
+async function actionResetTotal() {
+  await syncClearOverrides();
+  return `↩️ Toutes les modifications annulées. Planning initial restauré sur toutes les fiches.`;
+}
+
+// Détecte un problème de planning (ex: quelqu'un sans repos)
+function actionAnalyserProbleme(m) {
+  const planning = getEffectivePlanning();
+
+  // Cherche quelqu'un sans aucun repos
+  const sansRepos = planning.filter(s => s.shifts.every(sh => sh.deb > 0));
+  if (sansRepos.length > 0 || m.includes('repos') || m.includes('tous les jours')) {
+    const noms = sansRepos.map(s => s.prenom);
+    if (noms.length > 0) {
+      return `⚠️ J'ai détecté que <strong>${noms.join(', ')}</strong> n'${noms.length > 1 ? 'ont' : 'a'} aucun jour de repos cette semaine !<br><br>
+Dites-moi quel jour mettre en repos. Exemple : <em>"${noms[0]} est en repos lundi"</em>`;
+    }
+  }
+
+  // Vérifier couverture caisse
+  const joursSansCaisse = [];
+  for (let i = 0; i < 6; i++) {
+    const hasCaisse = planning.some(s => s.shifts[i]?.task?.toLowerCase().includes('caisse') && s.shifts[i]?.deb > 0);
+    if (!hasCaisse) joursSansCaisse.push(JOURS_LABEL[i]);
+  }
+  if (joursSansCaisse.length > 0) {
+    return `⚠️ Problème détecté : pas de caisse le <strong>${joursSansCaisse.join(', ')}</strong> !<br><br>Dites-moi qui mettre en caisse. Exemple : <em>"Cristiano en caisse ${joursSansCaisse[0].toLowerCase()}"</em>`;
+  }
+
+  return `J'ai analysé le planning. Voici ce que je vois :<br>${actionBilanEquipe()}<br><br>Tout semble correct. Si vous voyez un problème précis, décrivez-le moi.`;
+}
+
+
+// =============================================
+//  DEEPSEEK IA — Cerveau de l'assistant
+// =============================================
+
+const DEEPSEEK_KEY = 'sk-f6aa3fc02dcd4c66a2a2d9367519aa67';
+const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+let conversationHistory = [];
+
+function buildSystemPrompt() {
+  const planning = getEffectivePlanning();
+  const overrides = getOverrides();
+  const planningText = planning.map(s => {
+    const shifts = s.shifts.map((sh, i) => {
+      const j = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][i];
+      return sh.deb ? `${j}:${sh.deb}h-${sh.fin}h(${sh.task})` : `${j}:Repos`;
+    }).join(', ');
+    const total = s.shifts.reduce((sum, sh) => sum + (sh.deb ? sh.fin - sh.deb : 0), 0);
+    return `- ${s.prenom} ${s.nom} (${s.role}, contrat ${s.contrat}h, planifié ${total}h): ${shifts}`;
+  }).join('\n');
+  const modifs = overrides.length > 0
+    ? `\nModifications actives: ${overrides.map(o => `${o.prenom} ${['Lun','Mar','Mer','Jeu','Ven','Sam'][o.jourIdx]}: ${o.deb ? o.deb+'h-'+o.fin+'h('+o.task+')' : 'Repos'}`).join(', ')}`
+    : '';
+  return `Tu es l'assistant planning de ${SEMAINE.magasin}, géré par Antoine Benoit (Gérant).
+Tu parles en français, de façon concise et directe. Tu agis immédiatement sans dire "je vais faire".
+
+PLANNING SEMAINE ${SEMAINE.numero}:
+${planningText}${modifs}
+
+RÈGLES NOZ: Mercredi+Vendredi: EMP matin/CPRO après-midi. Repos EMP→Kylian Relais AM. 1 caisse obligatoire/jour. AM+2 EMP min simultanés. Antoine/Kylian:39h, autres:35h.
+
+ACTIONS — Si la demande nécessite une modification, réponds UNIQUEMENT avec du JSON valide sur une seule ligne:
+{"action":"absence","prenom":"Kylian","jourIdx":0}
+{"action":"horaire","prenom":"Cristiano","jourIdx":4,"deb":10,"fin":18,"task":"Polyvalent"}
+{"action":"tache","prenom":"Lionel","jourIdx":2,"task":"Caisse"}
+{"action":"restaurer","prenom":"Harry","jourIdx":1}
+{"action":"reset"}
+{"action":"bilan"}
+{"action":"voir","prenom":"Kylian"}
+
+jourIdx: 0=Lundi 1=Mardi 2=Mercredi 3=Jeudi 4=Vendredi 5=Samedi
+Règle absolue: JSON seul si action, texte seul si question/info. Jamais les deux mélangés.`;
+}
+
+async function callDeepSeek(userMessage) {
+  conversationHistory.push({ role: 'user', content: userMessage });
+  const resp = await fetch(DEEPSEEK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_KEY}` },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: buildSystemPrompt() },
+        ...conversationHistory.slice(-10),
+      ],
+      temperature: 0.2,
+      max_tokens: 400,
+    }),
+  });
+  if (!resp.ok) throw new Error(`Erreur API ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  const reply = data.choices[0].message.content.trim();
+  conversationHistory.push({ role: 'assistant', content: reply });
+  return reply;
+}
+
+async function executeAction(jsonStr) {
+  let action;
+  try { action = JSON.parse(jsonStr.trim()); } catch { return null; }
+  const JL = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  switch (action.action) {
+    case 'absence': {
+      const p = STAFF.find(s => s.prenom === action.prenom);
+      if (!p) return `❌ Employé "${action.prenom}" introuvable.`;
+      return await actionAbsence(p, { idx: action.jourIdx, label: JL[action.jourIdx] });
+    }
+    case 'horaire': {
+      const p = STAFF.find(s => s.prenom === action.prenom);
+      if (!p) return `❌ Employé "${action.prenom}" introuvable.`;
+      await applyOverride({ prenom: p.prenom, jourIdx: action.jourIdx, deb: action.deb, fin: action.fin, task: action.task || p.shifts[action.jourIdx]?.task || 'Polyvalent' });
+      return `✅ <strong>${p.prenom}</strong> le <strong>${JL[action.jourIdx]}</strong> : <strong>${action.deb}h → ${action.fin}h</strong> (${action.task}). ✓`;
+    }
+    case 'tache': {
+      const p = STAFF.find(s => s.prenom === action.prenom);
+      if (!p) return `❌ Employé "${action.prenom}" introuvable.`;
+      return await actionChangerTache(p, { idx: action.jourIdx, label: JL[action.jourIdx] }, action.task);
+    }
+    case 'restaurer': {
+      const p = STAFF.find(s => s.prenom === action.prenom);
+      if (!p) return `❌ Employé "${action.prenom}" introuvable.`;
+      return await actionRestaurer(p, { idx: action.jourIdx, label: JL[action.jourIdx] });
+    }
+    case 'reset': return await actionResetTotal();
+    case 'bilan': return actionBilanEquipe();
+    case 'voir': {
+      const p = STAFF.find(s => s.prenom === action.prenom);
+      return p ? actionVoirPlanning(p) : actionBilanEquipe();
+    }
+    default: return null;
+  }
+}
+
+async function generateResponse(msg) {
+  try {
+    const reply = await callDeepSeek(msg);
+
+    // Détecte toutes les lignes JSON dans la réponse
+    const lines = reply.split('\n').map(l => l.trim()).filter(l => l.startsWith('{') && l.endsWith('}'));
+
+    if (lines.length > 0) {
+      // Exécute chaque action dans l'ordre
+      const results = [];
+      for (const line of lines) {
+        const result = await executeAction(line);
+        if (result) results.push(result);
+      }
+      if (results.length > 0) {
+        return results.join('<br><br>');
+      }
+    }
+
+    // Réponse texte normale
+    return reply.replace(/\n/g, '<br>');
+
+  } catch (err) {
+    console.error('DeepSeek:', err);
+    return `⚠️ Impossible de joindre l'IA.<br><small style="color:var(--text-light)">${escHtml(err.message)}</small>`;
+  }
+}
+
+// ——— Send message ——————————————————————————
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  addUserMessage(text);
+  await syncSaveHistory(text);
+  renderHistory();
+  input.value = '';
+  input.style.height = 'auto';
+
+  showTyping(true);
+  const delay = 700 + Math.random() * 500;
+  setTimeout(async () => {
+    showTyping(false);
+    const response = await generateResponse(text);
+    addBotMessage(response);
+  }, delay);
+}
+
+document.getElementById('btn-send').addEventListener('click', sendMessage);
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// Auto-resize textarea
+document.getElementById('chat-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// Quick buttons
+document.getElementById('quick-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.quick-btn');
+  if (!btn) return;
+  const q = btn.dataset.q;
+  document.getElementById('chat-input').value = q;
+  sendMessage();
+});
+
+// ——— Module Consignes Admin ——————————————
+function initAdminConsignesSelect() {
+  const sel = document.getElementById('admin-consigne-dest');
+  if (!sel) return;
+  sel.innerHTML = `<option value="Tous">👥 Toute l'équipe</option>` +
+    STAFF.map(s => `<option value="${s.prenom}">${s.prenom} ${s.nom}</option>`).join('');
+}
+
+async function submitAdminConsigne() {
+  const text     = document.getElementById('admin-consigne-text').value.trim();
+  const dest     = document.getElementById('admin-consigne-dest').value;
+  const priority = document.getElementById('admin-consigne-priority').value;
+  if (!text) {
+    document.getElementById('admin-consigne-text').style.borderColor = '#dc2626';
+    setTimeout(() => document.getElementById('admin-consigne-text').style.borderColor = 'var(--border)', 1500);
+    return;
+  }
+  const c = {
+    id:       Date.now(),
+    dest,
+    text,
+    priority,
+    from:     'Antoine (Gérant)',
+    date:     new Date().toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }),
+  };
+  await syncSaveConsigne(c);
+  document.getElementById('admin-consigne-text').value = '';
+  renderAdminConsignes();
+  showToast(`Consigne envoyée à ${dest} ✓`);
+}
+
+async function renderAdminConsignes() {
+  const container = document.getElementById('admin-consignes-list');
+  if (!container) return;
+  const all = await syncGetConsignes();
+  if (!all.length) {
+    container.innerHTML = '<div class="history-empty">Aucune consigne active</div>';
+    return;
+  }
+  const icons = { haute: '🔴', normale: '🟡', info: '🔵' };
+  container.innerHTML = all.map(c => `
+    <div class="history-item" style="display:flex;align-items:flex-start;gap:8px">
+      <span style="font-size:12px;flex-shrink:0">${icons[c.priority]||'🟡'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:2px">
+          Pour : ${c.dest} · ${c.date}
+        </div>
+        <div class="history-msg">${escHtml(c.text)}</div>
+      </div>
+      <button onclick="deleteAdminConsigne(${c.id})" style="background:none;border:none;color:var(--text-light);cursor:pointer;font-size:15px;padding:0;flex-shrink:0">×</button>
+    </div>`).join('');
+}
+
+async function deleteAdminConsigne(id) {
+  await syncDeleteConsigne(id);
+  renderAdminConsignes();
+}
+
+async function clearAllAdminConsignes() {
+  if (!confirm('Effacer toutes les consignes ?')) return;
+  await syncClearConsignes();
+  renderAdminConsignes();
+  showToast('Consignes effacées');
+}
+
+// ——— History ——————————————————————————————
+async function renderHistory() {
+  const container = document.getElementById('history-list');
+  const history = await syncGetHistory();
+  if (!history.length) {
+    container.innerHTML = '<div class="history-empty">Aucune consigne pour l\'instant</div>';
+    return;
+  }
+  container.innerHTML = history.slice(0, 10).map(h =>
+    `<div class="history-item">
+      <div class="history-date">${h.time}</div>
+      <div class="history-msg">${escHtml(h.msg)}</div>
+    </div>`
+  ).join('');
+}
+
+async function clearHistory() {
+  await syncClearHistory();
+  renderHistory();
+  showToast('Historique effacé');
+}
+
+// ——— Toast ————————————————————————————————
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ——— Récap Pointages PDF ——————————————————
+function genererRecapPDF() {
+  const data = JSON.parse(localStorage.getItem('noz_pointages') || '{}');
+  const jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+  // Construire les dates de la semaine
+  const dates = STAFF[0].shifts.map((sh, i) => {
+    const d = new Date(SEMAINE.debut);
+    d.setDate(d.getDate() + i);
+    return d.toISOString().split('T')[0];
+  });
+
+  const rows = STAFF.map(s => {
+    const cells = dates.map((date, i) => {
+      const sh = s.shifts[i];
+      if (!sh?.deb) return `<td style="background:#f5f5f5;color:#999;text-align:center;font-size:11px">Repos</td>`;
+      const pt = data[date]?.[s.prenom] || {};
+      const duree = pt.arrivee && pt.depart ? (() => {
+        const mins = dureeMinutes(pt.arrivee.time, pt.depart.time);
+        return `${Math.floor(mins/60)}h${String(mins%60).padStart(2,'0')}`;
+      })() : '—';
+      const retard = pt.arrivee ? retardMinutes(sh.deb, pt.arrivee.time) : 0;
+      return `<td style="text-align:center;font-size:11px;padding:6px 4px">
+        <div style="font-weight:600">${pt.arrivee?.time || '—'} → ${pt.depart?.time || '—'}</div>
+        <div style="color:#666;font-size:10px">${duree}${retard > 0 ? ` <span style="color:red">(+${retard}min)</span>` : ''}</div>
+      </td>`;
+    }).join('');
+
+    // Total semaine
+    const totalMins = dates.reduce((sum, date, i) => {
+      const sh = s.shifts[i];
+      if (!sh?.deb) return sum;
+      const pt = data[date]?.[s.prenom] || {};
+      if (pt.arrivee && pt.depart) return sum + dureeMinutes(pt.arrivee.time, pt.depart.time);
+      return sum;
+    }, 0);
+    const totalStr = totalMins > 0 ? `${Math.floor(totalMins/60)}h${String(totalMins%60).padStart(2,'0')}` : '—';
+
+    return `<tr>
+      <td style="padding:8px 10px;font-weight:600;white-space:nowrap">${s.prenom} ${s.nom}</td>
+      <td style="text-align:center;font-size:11px;color:#666">${s.role}<br>${s.contrat}h</td>
+      ${cells}
+      <td style="text-align:center;font-weight:700;font-size:13px;color:#0D2240">${totalStr}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Récap Pointages S${SEMAINE.numero} — ${SEMAINE.magasin}</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; color: #111; }
+  h1 { color: #0D2240; font-size: 18px; margin-bottom: 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #0D2240; color: #fff; padding: 8px 6px; text-align: center; }
+  th:first-child { text-align: left; }
+  td { border: 1px solid #ddd; vertical-align: middle; }
+  tr:nth-child(even) { background: #f9f9f9; }
+  .legend { margin-top: 16px; font-size: 11px; color: #666; }
+  @media print { body { margin: 10px; } }
+</style>
+</head><body>
+<h1>NOZ ${SEMAINE.magasin} — Récapitulatif Pointages</h1>
+<div class="sub">Semaine ${SEMAINE.numero} · Du ${SEMAINE.debut} au ${SEMAINE.fin} · Généré le ${new Date().toLocaleString('fr-FR')}</div>
+<table>
+  <thead>
+    <tr>
+      <th>Employé</th>
+      <th>Rôle</th>
+      ${jours.map((j, i) => `<th>${j}<br><span style="font-weight:400;font-size:10px">${dates[i]?.split('-').slice(1).reverse().join('/')}</span></th>`).join('')}
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="legend">
+  Légende : Arrivée → Départ · (durée) · Rouge = retard<br>
+  Signature gérant : _________________________________ Date : _____________
+</div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 500);
+}
+
+// ——— INIT ————————————————————————————————
+async function boot() {
+  await initFirebase();
+  await syncGetOverrides();
+  initAdminConsignesSelect();
+  renderAdminConsignes();
+  renderHistory();
+}
+
+if (sessionStorage.getItem('noz_admin_auth') === '1') {
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('admin-app').classList.add('visible');
+  setTimeout(async () => {
+    await boot();
+    addBotMessage(getWelcomeMessage());
+  }, 300);
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
